@@ -1,6 +1,5 @@
-const LANGFLOW_URL = 'https://brayn0009-nami.hf.space/api/v1/run/535dd9a4-43bd-4f9b-84b9-242c2f2b73fb';
+const LANGFLOW_URL = 'https://brayn0009-nami.hf.space';
 const FLOW_ID = '723915ed-2bd2-42c4-9ce7-2678d3c21e05';
-const API_KEY = 'hf_eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjoiYnJheW4wMDA5IiwiaWF0IjoxNjg4ODQyODQ3LCJleHAiOjE3MjQ0ODg4NDd9.7n8sKj8mNqjLhHkKZl7aVb2r8eXoYl9vXoVh6sNqA';
 
 let isLoading = false;
 let chats = JSON.parse(localStorage.getItem('nami_chats') || '[]');
@@ -190,7 +189,6 @@ async function sendMessage() {
   const chat = getActiveChat();
   if (!chat) return;
 
-  // Save user message
   chat.messages.push({ role: 'user', text });
   if (chat.title === 'New Chat' && chat.messages.length === 1) {
     chat.title = text.length > 36 ? text.slice(0, 36) + '…' : text;
@@ -206,8 +204,7 @@ async function sendMessage() {
     const response = await fetch(`${LANGFLOW_URL}/api/v1/run/${FLOW_ID}`, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': API_KEY
+        'Content-Type': 'application/json'
       },
       body: JSON.stringify({
         input_value: text,
