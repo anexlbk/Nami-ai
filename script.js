@@ -1,5 +1,5 @@
 const LANGFLOW_URL = 'https://brayn0009-nami.hf.space';
-const FLOW_ID = '723915ed-2bd2-42c4-9ce7-2678d3c21e05';
+const FLOW_ID = '535dd9a4-43bd-4f9b-84b9-242c2f2b73fb';
 
 let isLoading = false;
 let chats = JSON.parse(localStorage.getItem('nami_chats') || '[]');
