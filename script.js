@@ -1,5 +1,6 @@
 const LANGFLOW_URL = 'https://brayn0009-nami.hf.space/api/v1/run/535dd9a4-43bd-4f9b-84b9-242c2f2b73fb';
 const FLOW_ID = '723915ed-2bd2-42c4-9ce7-2678d3c21e05';
+const API_KEY = 'hf_eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjoiYnJheW4wMDA5IiwiaWF0IjoxNjg4ODQyODQ3LCJleHAiOjE3MjQ0ODg4NDd9.7n8sKj8mNqjLhHkKZl7aVb2r8eXoYl9vXoVh6sNqA';
 
 let isLoading = false;
 let chats = JSON.parse(localStorage.getItem('nami_chats') || '[]');
