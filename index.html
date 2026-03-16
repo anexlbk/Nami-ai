@@ -1,85 +1,81 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Nami AI — Algerian Marketing Assistant</title>
-  <link rel="stylesheet" href="style.css" />
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nami AI | Algerian Market Specialist</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Syne:wght@700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-<div class="overlay" id="overlay" onclick="closeSidebar()"></div>
-
-<div class="app">
-
-  <!-- ── SIDEBAR ── -->
-  <aside class="sidebar" id="sidebar">
-    <div class="sidebar-header">
-      <div class="logo-icon">N</div>
-      <div>
-        <div class="logo-text">Nami <span>AI</span></div>
-      </div>
-    </div>
-
-    <button class="new-chat-btn" onclick="newChat()">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-      </svg>
-      New Chat
-    </button>
-
-    <div class="history-label">Recent</div>
-    <div class="history-list" id="history-list"></div>
-
-    <div class="sidebar-footer">
-      <div class="status-pill">
-        <div class="status-dot"></div>
-        Nami AI · Online
-      </div>
-    </div>
-  </aside>
-
-  <!-- ── MAIN ── -->
-  <main class="main">
-
-    <!-- Topbar -->
-    <div class="topbar">
-      <button class="sidebar-toggle" onclick="toggleSidebar()" title="Toggle sidebar">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <line x1="3" y1="6" x2="21" y2="6"/>
-          <line x1="3" y1="12" x2="21" y2="12"/>
-          <line x1="3" y1="18" x2="21" y2="18"/>
-        </svg>
-      </button>
-      <div class="topbar-title" id="topbar-title"><span>Nami AI</span> · New Chat</div>
-    </div>
-
-    <!-- Chat Window -->
-    <div id="chat-window"></div>
-
-    <!-- Input -->
-    <div class="input-area">
-      <div class="input-wrapper">
-        <textarea
-          id="user-input"
-          rows="1"
-          placeholder="Ask about Algerian marketing, law, startups..."
-          onkeydown="handleKey(event)"
-          oninput="autoResize(this)"
-        ></textarea>
-        <button id="send-btn" onclick="sendMessage()" title="Send">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-            <line x1="22" y1="2" x2="11" y2="13"/>
-            <polygon points="22 2 15 22 11 13 2 9 22 2"/>
-          </svg>
+    <aside class="sidebar" id="sidebar">
+        <div class="logo-container">
+            <div class="logo-box">N</div>
+            <div class="brand-name">Nami AI</div>
+        </div>
+        <button class="new-chat-btn" id="newChatBtn">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            New Chat
         </button>
-      </div>
-      <div class="input-hint">Nami AI · Algerian Market Specialist · Shift+Enter for new line</div>
-    </div>
+        <div class="chat-history" id="chatHistory"></div>
+        <div class="status-indicator">
+            <div class="dot"></div>
+            <span>System Online</span>
+        </div>
+    </aside>
 
-  </main>
-</div>
+    <main class="main-chat">
+        <header class="topbar">
+            <button class="hamburger" id="menuToggle">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+            </button>
+            <div class="chat-title" id="currentTitle">New Chat</div>
+            <div style="width:24px"></div>
+        </header>
 
-<script src="script.js"></script>
+        <section class="chat-window" id="chatWindow">
+            <div class="welcome-screen" id="welcomeScreen">
+                <div class="welcome-logo">N</div>
+                <h1 class="welcome-title">Welcome to Nami AI</h1>
+                <p class="welcome-tagline">Algerian Market Specialist 🇩🇿</p>
+                <div class="suggested-chips">
+                    <div class="chip" onclick="handleChipClick(this)">
+                        <span>📝</span>
+                        <div>Latest startup regulations in Algeria?</div>
+                    </div>
+                    <div class="chip" onclick="handleChipClick(this)">
+                        <span>🛒</span>
+                        <div>E-commerce commerce law overview</div>
+                    </div>
+                    <div class="chip" onclick="handleChipClick(this)">
+                        <span>📈</span>
+                        <div>Top growing sectors in Algeria 2025</div>
+                    </div>
+                    <div class="chip" onclick="handleChipClick(this)">
+                        <span>🏛️</span>
+                        <div>How to register a SARL?</div>
+                    </div>
+                </div>
+            </div>
+            <div id="messageList"></div>
+        </section>
+
+        <footer class="input-container">
+            <div class="input-wrapper">
+                <textarea id="userInput" placeholder="Ask Nami anything about the Algerian market..." rows="1"></textarea>
+                <div class="controls">
+                    <span class="hint">Shift+Enter for new line</span>
+                    <button class="send-btn" id="sendBtn">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+                    </button>
+                </div>
+            </div>
+        </footer>
+    </main>
+
+    <script src="script.js"></script>
 </body>
 </html>

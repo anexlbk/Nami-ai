@@ -1,200 +1,140 @@
-const PROXY_URL = 'https://nami-proxy.anaslachmi.workers.dev';// Replace with your Cloudflare Worker URL
+const PROXY_URL = 'https://nami-proxy.anaslachmi.workers.dev';
 
-let isLoading = false;
-let chats = JSON.parse(localStorage.getItem('nami_chats') || '[]');
+// ── DOM REFS ──
+const sidebar         = document.getElementById('sidebar');
+const menuToggle      = document.getElementById('menuToggle');
+const userInput       = document.getElementById('userInput');
+const sendBtn         = document.getElementById('sendBtn');
+const messageList     = document.getElementById('messageList');
+const chatWindow      = document.getElementById('chatWindow');
+const welcomeScreen   = document.getElementById('welcomeScreen');
+const historyList     = document.getElementById('chatHistory');
+const currentTitle    = document.getElementById('currentTitle');
+
+let chats        = JSON.parse(localStorage.getItem('nami_chats') || '[]');
 let activeChatId = null;
+let isLoading    = false;
 
 // ── INIT ──
 window.onload = () => {
   renderHistory();
-  if (chats.length > 0) {
-    loadChat(chats[0].id);
-  } else {
-    newChat();
-  }
+  if (chats.length > 0) loadChat(chats[0].id);
 };
 
-// ── CHAT MANAGEMENT ──
+// ── SIDEBAR ──
+menuToggle.onclick = () => sidebar.classList.toggle('open');
+
+// Close sidebar when clicking outside on mobile
+document.addEventListener('click', (e) => {
+  if (window.innerWidth <= 768 &&
+      sidebar.classList.contains('open') &&
+      !sidebar.contains(e.target) &&
+      e.target !== menuToggle) {
+    sidebar.classList.remove('open');
+  }
+});
+
+// ── INPUT ──
+userInput.addEventListener('input', function () {
+  this.style.height = 'auto';
+  this.style.height = Math.min(this.scrollHeight, 100) + 'px';
+});
+
+userInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    handleSendMessage();
+  }
+});
+
+sendBtn.onclick = handleSendMessage;
+document.getElementById('newChatBtn').onclick = newChat;
+
+// ── NEW CHAT ──
 function newChat() {
-  const id = 'chat_' + Date.now();
-  const chat = { id, title: 'New Chat', messages: [], createdAt: Date.now() };
-  chats.unshift(chat);
-  saveChats();
-  activeChatId = id;
+  activeChatId = null;
+  messageList.innerHTML = '';
+  welcomeScreen.style.display = 'block';
+  currentTitle.innerText = 'New Chat';
+  sidebar.classList.remove('open');
   renderHistory();
-  renderMessages();
-  updateTopbarTitle('New Chat');
-  closeSidebar();
 }
 
+// ── LOAD CHAT ──
 function loadChat(id) {
   activeChatId = id;
+  const chat = chats.find(c => c.id === id);
+  if (!chat) return;
+
+  messageList.innerHTML = '';
+  welcomeScreen.style.display = 'none';
+  currentTitle.innerText = chat.title;
+
+  chat.messages.forEach(msg => appendMessageEl(msg.role, msg.text));
+  chatWindow.scrollTop = chatWindow.scrollHeight;
+  sidebar.classList.remove('open');
   renderHistory();
-  renderMessages();
-  const chat = getActiveChat();
-  updateTopbarTitle(chat?.title || 'New Chat');
-  closeSidebar();
 }
 
-function deleteChat(id, e) {
+// ── DELETE CHAT ──
+function deleteChat(e, id) {
   e.stopPropagation();
   chats = chats.filter(c => c.id !== id);
   saveChats();
-  if (activeChatId === id) {
-    activeChatId = chats.length > 0 ? chats[0].id : null;
-    if (!activeChatId) newChat();
-    else loadChat(activeChatId);
-  }
+  if (activeChatId === id) newChat();
   renderHistory();
-}
-
-function getActiveChat() {
-  return chats.find(c => c.id === activeChatId);
-}
-
-function saveChats() {
-  localStorage.setItem('nami_chats', JSON.stringify(chats));
-}
-
-function updateTopbarTitle(title) {
-  const el = document.getElementById('topbar-title');
-  if (el) el.innerHTML = `<span>Nami AI</span> · ${escapeHtml(title)}`;
 }
 
 // ── RENDER HISTORY ──
 function renderHistory() {
-  const list = document.getElementById('history-list');
-  if (!list) return;
-
   if (chats.length === 0) {
-    list.innerHTML = `<div style="padding:16px;text-align:center;font-size:11px;color:var(--text-muted)">No chats yet</div>`;
+    historyList.innerHTML = `<div style="padding:12px;font-size:11px;color:var(--text-dim);text-align:center">No chats yet</div>`;
     return;
   }
-
-  list.innerHTML = chats.map(chat => `
-    <div class="history-item ${chat.id === activeChatId ? 'active' : ''}" onclick="loadChat('${chat.id}')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-      </svg>
-      <span class="history-item-text">${escapeHtml(chat.title)}</span>
-      <button class="history-item-del" onclick="deleteChat('${chat.id}', event)" title="Delete">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/>
-          <path d="M10 11v6"/><path d="M14 11v6"/>
-        </svg>
+  historyList.innerHTML = chats.map(chat => `
+    <div class="history-item ${chat.id === activeChatId ? 'active' : ''}" onclick="loadChat(${chat.id})">
+      <div class="title-text">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        ${escapeHtml(chat.title)}
+      </div>
+      <button class="delete-btn" onclick="deleteChat(event, ${chat.id})" title="Delete">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
       </button>
     </div>
   `).join('');
 }
 
-// ── RENDER MESSAGES ──
-function renderMessages() {
-  const chatWindow = document.getElementById('chat-window');
-  chatWindow.innerHTML = '';
-
-  const chat = getActiveChat();
-  if (!chat || chat.messages.length === 0) {
-    chatWindow.innerHTML = `
-      <div class="welcome" id="welcome-screen">
-        <div class="welcome-icon">🇩🇿</div>
-        <h1>Welcome to <span>Nami AI</span></h1>
-        <p>Your specialized marketing assistant for the Algerian market. I know Algerian commerce law, marketing regulations, and startup ecosystems.</p>
-        <div class="chips">
-          <div class="chip" onclick="sendChip(this)">Rules for advertising in Algeria?</div>
-          <div class="chip" onclick="sendChip(this)">How to register a startup?</div>
-          <div class="chip" onclick="sendChip(this)">Digital marketing for Algerian audience</div>
-          <div class="chip" onclick="sendChip(this)">Algerian e-commerce regulations</div>
-          <div class="chip" onclick="sendChip(this)">How to price for Algerian market?</div>
-        </div>
-      </div>`;
-    return;
-  }
-
-  chat.messages.forEach(msg => {
-    appendMessageEl(msg.role, msg.text);
-  });
-
-  chatWindow.scrollTop = chatWindow.scrollHeight;
-}
-
-// ── APPEND MESSAGE ELEMENT ──
-function appendMessageEl(role, text) {
-  const chatWindow = document.getElementById('chat-window');
-  const welcome = document.getElementById('welcome-screen');
-  if (welcome) welcome.remove();
-
-  const div = document.createElement('div');
-  div.className = `message ${role}`;
-
-  const avatar = document.createElement('div');
-  avatar.className = `avatar ${role === 'bot' ? 'bot-avatar' : 'user-avatar'}`;
-  avatar.textContent = role === 'bot' ? 'N' : 'You';
-
-  const bubble = document.createElement('div');
-  bubble.className = 'bubble';
-  bubble.innerHTML = formatText(text);
-
-  div.appendChild(avatar);
-  div.appendChild(bubble);
-  chatWindow.appendChild(div);
-  chatWindow.scrollTop = chatWindow.scrollHeight;
-  return bubble;
-}
-
-// ── TYPING INDICATOR ──
-function showTyping() {
-  const chatWindow = document.getElementById('chat-window');
-  const welcome = document.getElementById('welcome-screen');
-  if (welcome) welcome.remove();
-
-  const div = document.createElement('div');
-  div.className = 'message bot';
-  div.id = 'typing-msg';
-
-  const avatar = document.createElement('div');
-  avatar.className = 'avatar bot-avatar';
-  avatar.textContent = 'N';
-
-  const bubble = document.createElement('div');
-  bubble.className = 'bubble';
-  bubble.innerHTML = `<div class="typing-indicator">
-    <div class="typing-dot"></div>
-    <div class="typing-dot"></div>
-    <div class="typing-dot"></div>
-  </div>`;
-
-  div.appendChild(avatar);
-  div.appendChild(bubble);
-  chatWindow.appendChild(div);
-  chatWindow.scrollTop = chatWindow.scrollHeight;
-}
-
-function removeTyping() {
-  const t = document.getElementById('typing-msg');
-  if (t) t.remove();
+// ── SAVE ──
+function saveChats() {
+  localStorage.setItem('nami_chats', JSON.stringify(chats));
 }
 
 // ── SEND MESSAGE ──
-async function sendMessage() {
-  const input = document.getElementById('user-input');
-  const text = input.value.trim();
+async function handleSendMessage() {
+  const text = userInput.value.trim();
   if (!text || isLoading) return;
 
-  input.value = '';
-  input.style.height = 'auto';
-  isLoading = true;
-  document.getElementById('send-btn').disabled = true;
+  // Create chat if none active
+  if (!activeChatId) {
+    activeChatId = Date.now();
+    const title = text.length > 36 ? text.slice(0, 36) + '…' : text;
+    chats.unshift({ id: activeChatId, title, messages: [] });
+    currentTitle.innerText = title;
+  }
 
-  const chat = getActiveChat();
+  const chat = chats.find(c => c.id === activeChatId);
   if (!chat) return;
 
-  chat.messages.push({ role: 'user', text });
-  if (chat.title === 'New Chat' && chat.messages.length === 1) {
-    chat.title = text.length > 36 ? text.slice(0, 36) + '…' : text;
-    updateTopbarTitle(chat.title);
-  }
-  saveChats();
+  // Clear input
+  userInput.value = '';
+  userInput.style.height = 'auto';
+  welcomeScreen.style.display = 'none';
+  isLoading = true;
+  sendBtn.disabled = true;
 
+  // Save & show user message
+  chat.messages.push({ role: 'user', text });
+  saveChats();
   appendMessageEl('user', text);
   renderHistory();
   showTyping();
@@ -202,14 +142,12 @@ async function sendMessage() {
   try {
     const response = await fetch(PROXY_URL, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         input_value: text,
         output_type: 'chat',
         input_type: 'chat',
-        session_id: activeChatId
+        session_id: String(activeChatId)
       })
     });
 
@@ -243,13 +181,44 @@ async function sendMessage() {
   }
 
   isLoading = false;
-  document.getElementById('send-btn').disabled = false;
-  input.focus();
+  sendBtn.disabled = false;
+  userInput.focus();
 }
 
-function sendChip(el) {
-  document.getElementById('user-input').value = el.textContent;
-  sendMessage();
+// ── APPEND MESSAGE ──
+function appendMessageEl(role, text) {
+  const div = document.createElement('div');
+  div.className = `message ${role}`;
+  div.innerHTML = `
+    <div class="avatar">${role === 'bot' ? 'N' : 'You'}</div>
+    <div class="bubble">${formatText(text)}</div>
+  `;
+  messageList.appendChild(div);
+  chatWindow.scrollTop = chatWindow.scrollHeight;
+}
+
+// ── TYPING INDICATOR ──
+function showTyping() {
+  const div = document.createElement('div');
+  div.className = 'message bot';
+  div.id = 'typingIndicator';
+  div.innerHTML = `
+    <div class="avatar">N</div>
+    <div class="bubble"><div class="typing"><span></span><span></span><span></span></div></div>
+  `;
+  messageList.appendChild(div);
+  chatWindow.scrollTop = chatWindow.scrollHeight;
+}
+
+function removeTyping() {
+  const el = document.getElementById('typingIndicator');
+  if (el) el.remove();
+}
+
+// ── CHIP CLICK ──
+function handleChipClick(chip) {
+  userInput.value = chip.querySelector('div').innerText;
+  handleSendMessage();
 }
 
 // ── UTILS ──
@@ -262,33 +231,6 @@ function formatText(text) {
 
 function escapeHtml(str) {
   return String(str)
-    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
-    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
-
-function autoResize(el) {
-  el.style.height = 'auto';
-  el.style.height = Math.min(el.scrollHeight, 100) + 'px';
-}
-
-function handleKey(e) {
-  if (e.key === 'Enter' && !e.shiftKey) {
-    e.preventDefault();
-    sendMessage();
-  }
-}
-
-// ── SIDEBAR MOBILE ──
-function toggleSidebar() {
-  const sidebar = document.getElementById('sidebar');
-  const overlay = document.getElementById('overlay');
-  sidebar.classList.toggle('open');
-  overlay.classList.toggle('show');
-}
-
-function closeSidebar() {
-  const sidebar = document.getElementById('sidebar');
-  const overlay = document.getElementById('overlay');
-  sidebar.classList.remove('open');
-  overlay.classList.remove('show');
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
