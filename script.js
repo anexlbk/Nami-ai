@@ -1,5 +1,4 @@
-const LANGFLOW_URL = 'https://brayn0009-nami.hf.space';
-const FLOW_ID = '535dd9a4-43bd-4f9b-84b9-242c2f2b73fb';
+const PROXY_URL = 'https://nami-proxy.anaslachmi.workers.dev';// Replace with your Cloudflare Worker URL
 
 let isLoading = false;
 let chats = JSON.parse(localStorage.getItem('nami_chats') || '[]');
@@ -201,7 +200,7 @@ async function sendMessage() {
   showTyping();
 
   try {
-    const response = await fetch(`${LANGFLOW_URL}/api/v1/run/${FLOW_ID}`, {
+    const response = await fetch(PROXY_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
