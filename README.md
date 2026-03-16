@@ -143,5 +143,3 @@ This logic resides in `handleSendMessage()` .
 | ChatOutput | Produces the final chat response object for the proxy |
 
 
----
-Source: https://app.docuwriter.ai/space/41882/item/472051
