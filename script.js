@@ -1,4 +1,4 @@
-const PROXY_URL = 'http://20.199.160.8.nip.io:5678/webhook/3c40d311-7996-4ed4-b2fa-c73bea5f4cf5/chat'
+const PROXY_URL = 'https://20.199.160.8.nip.io:5678/webhook/3c40d311-7996-4ed4-b2fa-c73bea5f4cf5/chat'
 
 // ── DOM REFS ──
 const sidebar         = document.getElementById('sidebar');
