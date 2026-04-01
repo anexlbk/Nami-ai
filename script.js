@@ -1,4 +1,4 @@
-const PROXY_URL = 'https://nami-proxy.anaslachmi.workers.dev';
+const PROXY_URL = 'http://20.199.160.8.nip.io:5678/webhook/3c40d311-7996-4ed4-b2fa-c73bea5f4cf5/chat'
 
 // ── DOM REFS ──
 const sidebar         = document.getElementById('sidebar');
@@ -144,10 +144,8 @@ async function handleSendMessage() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        input_value: text,
-        output_type: 'chat',
-        input_type: 'chat',
-        session_id: String(activeChatId)
+        chatInput: text,
+        sessionId: String(activeChatId)
       })
     });
 
@@ -156,12 +154,14 @@ async function handleSendMessage() {
     const data = await response.json();
     let reply = '';
     try {
-      const outputs = data?.outputs?.[0]?.outputs?.[0];
+      // n8n response format
       reply =
-        outputs?.results?.message?.text ||
-        outputs?.artifacts?.message ||
-        outputs?.outputs?.message?.message?.text ||
-        data?.result ||
+        data?.output ||
+        data?.text ||
+        data?.message ||
+        data?.response ||
+        data?.chatOutput ||
+        (Array.isArray(data) && data[0]?.output) ||
         'I received your message but could not parse the response.';
     } catch {
       reply = 'Received a response but could not read it.';
