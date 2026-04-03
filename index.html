@@ -64,14 +64,26 @@
         </section>
 
         <footer class="input-container">
-            <div class="input-wrapper">
-                <textarea id="userInput" placeholder="Ask Nami anything about the Algerian market..." rows="1"></textarea>
-                <div class="controls">
-                    <span class="hint">Shift+Enter for new line</span>
-                    <button class="send-btn" id="sendBtn">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
-                    </button>
+           <div class="input-wrapper">
+              <div class="file-badge" id="fileBadge" style="display:none">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66L9.41 17.41a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+                <span id="fileName"></span>
+                <button onclick="clearFile()" title="Remove">✕</button>
+              </div>
+              <textarea id="userInput" placeholder="Ask Nami anything about the Algerian market..." rows="1"></textarea>
+              <div class="controls">
+                <span class="hint">Shift+Enter for new line</span>
+                <div style="display:flex;gap:8px;align-items:center">
+                  <input type="file" id="fileInput" accept="image/*,application/pdf" style="display:none">
+                  <button class="attach-btn" id="attachBtn" title="Attach file">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66L9.41 17.41a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+                  </button>
+                  <button class="send-btn" id="sendBtn">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+                  </button>
                 </div>
+              </div>
+            </div>
             </div>
         </footer>
     </main>
