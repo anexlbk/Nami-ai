@@ -425,3 +425,36 @@ textarea::-webkit-scrollbar { width: 2px; }
     .welcome-screen { margin: 30px auto; }
     .welcome-title { font-size: 24px; }
 }
+
+.attach-btn {
+  background: transparent;
+  border: 1px solid var(--border-color);
+  color: var(--text-dim);
+  width: 30px; height: 30px;
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+.attach-btn:hover { border-color: var(--primary-accent); color: var(--primary-accent); }
+
+.file-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(0,229,160,0.08);
+  border: 1px solid rgba(0,229,160,0.25);
+  border-radius: 6px;
+  padding: 5px 10px;
+  font-size: 11px;
+  color: var(--primary-accent);
+  margin-bottom: 8px;
+}
+.file-badge button {
+  background: none; border: none;
+  color: var(--text-dim);
+  cursor: pointer; font-size: 12px; padding: 0 2px;
+  line-height: 1;
+}
+.file-badge button:hover { color: #ff6b6b; }
