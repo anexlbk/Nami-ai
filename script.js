@@ -162,22 +162,20 @@ async function handleSendMessage() {
   showTyping();
 
   try {
-    const payload = { chatInput: text, sessionId: String(activeChatId) };
+    // ✅ Use FormData instead of JSON so n8n receives the actual file
+    const formData = new FormData();
+    formData.append('chatInput', text);
+    formData.append('sessionId', String(activeChatId));
 
     if (attachedFile) {
-      const base64 = await new Promise((res) => {
-        const reader = new FileReader();
-        reader.onload = () => res(reader.result.split(',')[1]);
-        reader.readAsDataURL(attachedFile);
-      });
-      payload.file = { name: attachedFile.name, type: attachedFile.type, data: base64 };
+      formData.append('files', attachedFile); // actual file object, not base64
       clearFile();
     }
 
+    // ✅ No Content-Type header — browser sets it automatically with correct multipart boundary
     const response = await fetch(PROXY_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
+      body: formData
     });
 
     if (!response.ok) throw new Error(`Server error: ${response.status}`);
