@@ -15,6 +15,31 @@ let chats        = JSON.parse(localStorage.getItem('nami_chats') || '[]');
 let activeChatId = null;
 let isLoading    = false;
 
+// ── FILE UPLOAD ──
+let attachedFile = null;
+
+document.getElementById('attachBtn').onclick = () => document.getElementById('fileInput').click();
+
+document.getElementById('fileInput').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  if (file.size > 5 * 1024 * 1024) {
+    alert('File too large. Max size is 5MB.');
+    e.target.value = '';
+    return;
+  }
+  attachedFile = file;
+  document.getElementById('fileName').textContent = file.name;
+  document.getElementById('fileBadge').style.display = 'flex';
+});
+
+function clearFile() {
+  attachedFile = null;
+  document.getElementById('fileInput').value = '';
+  document.getElementById('fileBadge').style.display = 'none';
+  document.getElementById('fileName').textContent = '';
+}
+
 // ── INIT ──
 window.onload = () => {
   renderHistory();
@@ -24,7 +49,6 @@ window.onload = () => {
 // ── SIDEBAR ──
 menuToggle.onclick = () => sidebar.classList.toggle('open');
 
-// Close sidebar when clicking outside on mobile
 document.addEventListener('click', (e) => {
   if (window.innerWidth <= 768 &&
       sidebar.classList.contains('open') &&
@@ -112,12 +136,11 @@ function saveChats() {
 // ── SEND MESSAGE ──
 async function handleSendMessage() {
   const text = userInput.value.trim();
-  if (!text || isLoading) return;
+  if ((!text && !attachedFile) || isLoading) return;
 
-  // Create chat if none active
   if (!activeChatId) {
     activeChatId = Date.now();
-    const title = text.length > 36 ? text.slice(0, 36) + '…' : text;
+    const title = text.length > 36 ? text.slice(0, 36) + '…' : (attachedFile ? attachedFile.name : 'File');
     chats.unshift({ id: activeChatId, title, messages: [] });
     currentTitle.innerText = title;
   }
@@ -125,28 +148,36 @@ async function handleSendMessage() {
   const chat = chats.find(c => c.id === activeChatId);
   if (!chat) return;
 
-  // Clear input
   userInput.value = '';
   userInput.style.height = 'auto';
   welcomeScreen.style.display = 'none';
   isLoading = true;
   sendBtn.disabled = true;
 
-  // Save & show user message
-  chat.messages.push({ role: 'user', text });
+  const displayText = text + (attachedFile ? `\n📎 ${attachedFile.name}` : '');
+  chat.messages.push({ role: 'user', text: displayText });
   saveChats();
-  appendMessageEl('user', text);
+  appendMessageEl('user', displayText);
   renderHistory();
   showTyping();
 
   try {
+    const payload = { chatInput: text, sessionId: String(activeChatId) };
+
+    if (attachedFile) {
+      const base64 = await new Promise((res) => {
+        const reader = new FileReader();
+        reader.onload = () => res(reader.result.split(',')[1]);
+        reader.readAsDataURL(attachedFile);
+      });
+      payload.file = { name: attachedFile.name, type: attachedFile.type, data: base64 };
+      clearFile();
+    }
+
     const response = await fetch(PROXY_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        chatInput: text,
-        sessionId: String(activeChatId)
-      })
+      body: JSON.stringify(payload)
     });
 
     if (!response.ok) throw new Error(`Server error: ${response.status}`);
@@ -154,7 +185,6 @@ async function handleSendMessage() {
     const data = await response.json();
     let reply = '';
     try {
-      // n8n response format
       reply =
         data?.output ||
         data?.text ||
