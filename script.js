@@ -162,17 +162,15 @@ async function handleSendMessage() {
   showTyping();
 
   try {
-    // ✅ Use FormData instead of JSON so n8n receives the actual file
     const formData = new FormData();
     formData.append('chatInput', text);
     formData.append('sessionId', String(activeChatId));
 
     if (attachedFile) {
-      formData.append('files', attachedFile); // actual file object, not base64
+      formData.append('files', attachedFile);
       clearFile();
     }
 
-    // ✅ No Content-Type header — browser sets it automatically with correct multipart boundary
     const response = await fetch(PROXY_URL, {
       method: 'POST',
       body: formData
@@ -251,6 +249,29 @@ function handleChipClick(chip) {
 
 // ── UTILS ──
 function formatText(text) {
+  // ── Render base64 images returned by the image generation tool
+  if (typeof text === 'string' && text.startsWith('data:image/')) {
+    return `<img
+      src="${text}"
+      alt="Generated image"
+      style="max-width:280px;width:100%;border-radius:12px;margin-top:8px;display:block;"
+      onload="chatWindow.scrollTop = chatWindow.scrollHeight"
+    />`;
+  }
+
+  // ── Render plain image URLs (http/https ending in image extension or from known image hosts)
+  const imageUrlPattern = /^https?:\/\/.+\.(png|jpg|jpeg|gif|webp)(\?.*)?$/i;
+  const pollinationsPattern = /^https?:\/\/image\.pollinations\.ai\/.+/i;
+  if (typeof text === 'string' && (imageUrlPattern.test(text.trim()) || pollinationsPattern.test(text.trim()))) {
+    return `<img
+      src="${escapeHtml(text.trim())}"
+      alt="Generated image"
+      style="max-width:280px;width:100%;border-radius:12px;margin-top:8px;display:block;"
+      onload="chatWindow.scrollTop = chatWindow.scrollHeight"
+    />`;
+  }
+
+  // ── Default: render markdown-lite + escape HTML
   return escapeHtml(text)
     .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
     .replace(/\*(.*?)\*/g, '<em>$1</em>')
