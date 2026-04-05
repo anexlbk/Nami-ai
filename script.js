@@ -175,19 +175,25 @@ async function handleSendMessage() {
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
-    const formData = new FormData();
-    formData.append('action', 'sendMessage'); // ← FIXED: required by n8n
-    formData.append('chatInput', text);
-    formData.append('sessionId', String(activeChatId));
+    let body, fetchHeaders = {};
 
     if (attachedFile) {
+      const formData = new FormData();
+      formData.append('action', 'sendMessage');
+      formData.append('chatInput', text);
+      formData.append('sessionId', String(activeChatId));
       formData.append('files', attachedFile);
       clearFile();
+      body = formData;
+    } else {
+      body = JSON.stringify({ action: 'sendMessage', chatInput: text, sessionId: String(activeChatId) });
+      fetchHeaders = { 'Content-Type': 'application/json' };
     }
 
     const response = await fetch(PROXY_URL, {
       method: 'POST',
-      body: formData,
+      headers: fetchHeaders,
+      body,
       signal: controller.signal
     });
 
@@ -195,41 +201,18 @@ async function handleSendMessage() {
 
     if (!response.ok) throw new Error(`Server error: ${response.status}`);
 
-    const contentType = response.headers.get('content-type') || '';
+    const data = await response.json();
 
-    let reply = '';
+    const allValues = [
+      data?.output,
+      data?.text,
+      data?.message,
+      data?.response,
+      data?.chatOutput,
+      Array.isArray(data) ? data[0]?.output : null
+    ].filter(Boolean);
 
-    if (contentType.startsWith('image/')) {
-      const blob = await response.blob();
-      const dataUrl = await blobToDataUrl(blob);
-      reply = dataUrl;
-
-    } else {
-      const data = await response.json();
-
-      const allValues = [
-        data?.output,
-        data?.text,
-        data?.message,
-        data?.response,
-        data?.chatOutput,
-        Array.isArray(data) ? data[0]?.output : null
-      ].filter(Boolean);
-
-      const imageField = allValues.find(v =>
-        typeof v === 'string' && (
-          v.startsWith('data:image/') ||
-          v.startsWith('/9j/') ||
-          v.startsWith('iVBOR')
-        )
-      );
-
-      if (imageField) {
-        reply = imageField.startsWith('data:') ? imageField : `data:image/jpeg;base64,${imageField}`;
-      } else {
-        reply = allValues[0] || 'I received your message but could not parse the response.';
-      }
-    }
+    const reply = allValues[0] || 'I received your message but could not parse the response.';
 
     removeTyping();
     chat.messages.push({ role: 'bot', text: reply });
@@ -243,7 +226,7 @@ async function handleSendMessage() {
     let errMsg;
     if (err.name === 'AbortError') {
       errMsg = looksLikeImage
-        ? `⏱️ Image generation timed out. FLUX.1-schnell can take up to 60s. Please try again.`
+        ? `⏱️ Image generation timed out. Please try again.`
         : `⏱️ Request timed out. Please try again.`;
     } else {
       errMsg = `⚠️ Could not reach Nami AI. Please try again.\n\nError: ${err.message}`;
@@ -312,6 +295,7 @@ function handleChipClick(chip) {
 function formatText(text) {
   if (typeof text !== 'string') return '';
 
+  // Render base64 data URL images
   if (text.startsWith('data:image/')) {
     return `<img
       src="${text}"
@@ -321,6 +305,7 @@ function formatText(text) {
     />`;
   }
 
+  // Render raw base64 strings (JPEG / PNG)
   if (text.startsWith('/9j/') || text.startsWith('iVBOR')) {
     const mime = text.startsWith('/9j/') ? 'image/jpeg' : 'image/png';
     return `<img
@@ -331,6 +316,7 @@ function formatText(text) {
     />`;
   }
 
+  // Render image URLs (including Cloudinary)
   const imageUrlPattern = /^https?:\/\/.+\.(png|jpg|jpeg|gif|webp)(\?.*)?$/i;
   if (imageUrlPattern.test(text.trim())) {
     return `<img
@@ -341,6 +327,7 @@ function formatText(text) {
     />`;
   }
 
+  // Default: markdown-lite
   return escapeHtml(text)
     .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
     .replace(/\*(.*?)\*/g, '<em>$1</em>')
