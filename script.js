@@ -167,17 +167,16 @@ async function handleSendMessage() {
   appendMessageEl('user', displayText);
   renderHistory();
 
-  // Show appropriate typing message for image requests
   const looksLikeImage = isImageRequest(text);
   showTyping(looksLikeImage ? '🎨 Generating image, this may take ~30s...' : null);
 
-  // Use AbortController with 90s timeout for image generation, 30s for normal
   const timeoutMs = looksLikeImage ? 90000 : 30000;
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
     const formData = new FormData();
+    formData.append('action', 'sendMessage'); // ← FIXED: required by n8n
     formData.append('chatInput', text);
     formData.append('sessionId', String(activeChatId));
 
@@ -196,22 +195,18 @@ async function handleSendMessage() {
 
     if (!response.ok) throw new Error(`Server error: ${response.status}`);
 
-    // Check content type — n8n may return binary (image) or JSON
     const contentType = response.headers.get('content-type') || '';
 
     let reply = '';
 
     if (contentType.startsWith('image/')) {
-      // n8n returned a raw binary image — convert to base64 data URL
       const blob = await response.blob();
       const dataUrl = await blobToDataUrl(blob);
       reply = dataUrl;
 
     } else {
-      // Normal JSON response
       const data = await response.json();
 
-      // Check if any field contains a base64 image string
       const allValues = [
         data?.output,
         data?.text,
@@ -221,17 +216,15 @@ async function handleSendMessage() {
         Array.isArray(data) ? data[0]?.output : null
       ].filter(Boolean);
 
-      // Look for base64 image data in any field
       const imageField = allValues.find(v =>
         typeof v === 'string' && (
           v.startsWith('data:image/') ||
-          v.startsWith('/9j/') ||   // JPEG base64
-          v.startsWith('iVBOR')     // PNG base64
+          v.startsWith('/9j/') ||
+          v.startsWith('iVBOR')
         )
       );
 
       if (imageField) {
-        // Wrap raw base64 in data URL if needed
         reply = imageField.startsWith('data:') ? imageField : `data:image/jpeg;base64,${imageField}`;
       } else {
         reply = allValues[0] || 'I received your message but could not parse the response.';
@@ -319,7 +312,6 @@ function handleChipClick(chip) {
 function formatText(text) {
   if (typeof text !== 'string') return '';
 
-  // Render base64 data URL images
   if (text.startsWith('data:image/')) {
     return `<img
       src="${text}"
@@ -329,7 +321,6 @@ function formatText(text) {
     />`;
   }
 
-  // Render raw base64 strings (JPEG / PNG)
   if (text.startsWith('/9j/') || text.startsWith('iVBOR')) {
     const mime = text.startsWith('/9j/') ? 'image/jpeg' : 'image/png';
     return `<img
@@ -340,7 +331,6 @@ function formatText(text) {
     />`;
   }
 
-  // Render plain image URLs
   const imageUrlPattern = /^https?:\/\/.+\.(png|jpg|jpeg|gif|webp)(\?.*)?$/i;
   if (imageUrlPattern.test(text.trim())) {
     return `<img
@@ -351,7 +341,6 @@ function formatText(text) {
     />`;
   }
 
-  // Default: markdown-lite
   return escapeHtml(text)
     .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
     .replace(/\*(.*?)\*/g, '<em>$1</em>')
