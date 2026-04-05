@@ -133,6 +133,13 @@ function saveChats() {
   localStorage.setItem('nami_chats', JSON.stringify(chats));
 }
 
+// ── DETECT IMAGE REQUEST ──
+function isImageRequest(text) {
+  const lower = text.toLowerCase();
+  const triggers = ['generate', 'create', 'draw', 'design', 'make', 'sawwer', 'generate image', 'صور', 'رسم', 'صمم', 'génère', 'crée', 'dessine', 'image', 'picture', 'photo', 'logo', 'illustration', 'visual'];
+  return triggers.some(t => lower.includes(t));
+}
+
 // ── SEND MESSAGE ──
 async function handleSendMessage() {
   const text = userInput.value.trim();
@@ -159,7 +166,15 @@ async function handleSendMessage() {
   saveChats();
   appendMessageEl('user', displayText);
   renderHistory();
-  showTyping();
+
+  // Show appropriate typing message for image requests
+  const looksLikeImage = isImageRequest(text);
+  showTyping(looksLikeImage ? '🎨 Generating image, this may take ~30s...' : null);
+
+  // Use AbortController with 90s timeout for image generation, 30s for normal
+  const timeoutMs = looksLikeImage ? 90000 : 30000;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
     const formData = new FormData();
@@ -173,24 +188,54 @@ async function handleSendMessage() {
 
     const response = await fetch(PROXY_URL, {
       method: 'POST',
-      body: formData
+      body: formData,
+      signal: controller.signal
     });
+
+    clearTimeout(timeoutId);
 
     if (!response.ok) throw new Error(`Server error: ${response.status}`);
 
-    const data = await response.json();
+    // Check content type — n8n may return binary (image) or JSON
+    const contentType = response.headers.get('content-type') || '';
+
     let reply = '';
-    try {
-      reply =
-        data?.output ||
-        data?.text ||
-        data?.message ||
-        data?.response ||
-        data?.chatOutput ||
-        (Array.isArray(data) && data[0]?.output) ||
-        'I received your message but could not parse the response.';
-    } catch {
-      reply = 'Received a response but could not read it.';
+
+    if (contentType.startsWith('image/')) {
+      // n8n returned a raw binary image — convert to base64 data URL
+      const blob = await response.blob();
+      const dataUrl = await blobToDataUrl(blob);
+      reply = dataUrl;
+
+    } else {
+      // Normal JSON response
+      const data = await response.json();
+
+      // Check if any field contains a base64 image string
+      const allValues = [
+        data?.output,
+        data?.text,
+        data?.message,
+        data?.response,
+        data?.chatOutput,
+        Array.isArray(data) ? data[0]?.output : null
+      ].filter(Boolean);
+
+      // Look for base64 image data in any field
+      const imageField = allValues.find(v =>
+        typeof v === 'string' && (
+          v.startsWith('data:image/') ||
+          v.startsWith('/9j/') ||   // JPEG base64
+          v.startsWith('iVBOR')     // PNG base64
+        )
+      );
+
+      if (imageField) {
+        // Wrap raw base64 in data URL if needed
+        reply = imageField.startsWith('data:') ? imageField : `data:image/jpeg;base64,${imageField}`;
+      } else {
+        reply = allValues[0] || 'I received your message but could not parse the response.';
+      }
     }
 
     removeTyping();
@@ -199,8 +244,18 @@ async function handleSendMessage() {
     appendMessageEl('bot', reply);
 
   } catch (err) {
+    clearTimeout(timeoutId);
     removeTyping();
-    const errMsg = `⚠️ Could not reach Nami AI. Please try again.\n\nError: ${err.message}`;
+
+    let errMsg;
+    if (err.name === 'AbortError') {
+      errMsg = looksLikeImage
+        ? `⏱️ Image generation timed out. FLUX.1-schnell can take up to 60s. Please try again.`
+        : `⏱️ Request timed out. Please try again.`;
+    } else {
+      errMsg = `⚠️ Could not reach Nami AI. Please try again.\n\nError: ${err.message}`;
+    }
+
     chat.messages.push({ role: 'bot', text: errMsg });
     saveChats();
     appendMessageEl('bot', errMsg);
@@ -209,6 +264,16 @@ async function handleSendMessage() {
   isLoading = false;
   sendBtn.disabled = false;
   userInput.focus();
+}
+
+// ── BLOB TO DATA URL ──
+function blobToDataUrl(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
 }
 
 // ── APPEND MESSAGE ──
@@ -224,13 +289,16 @@ function appendMessageEl(role, text) {
 }
 
 // ── TYPING INDICATOR ──
-function showTyping() {
+function showTyping(label) {
   const div = document.createElement('div');
   div.className = 'message bot';
   div.id = 'typingIndicator';
   div.innerHTML = `
     <div class="avatar">N</div>
-    <div class="bubble"><div class="typing"><span></span><span></span><span></span></div></div>
+    <div class="bubble">
+      ${label ? `<div style="font-size:11px;color:var(--text-dim);margin-bottom:6px">${label}</div>` : ''}
+      <div class="typing"><span></span><span></span><span></span></div>
+    </div>
   `;
   messageList.appendChild(div);
   chatWindow.scrollTop = chatWindow.scrollHeight;
@@ -247,34 +315,47 @@ function handleChipClick(chip) {
   handleSendMessage();
 }
 
-// ── UTILS ──
+// ── FORMAT TEXT ──
 function formatText(text) {
-  // ── Render base64 images returned by the image generation tool
-  if (typeof text === 'string' && text.startsWith('data:image/')) {
+  if (typeof text !== 'string') return '';
+
+  // Render base64 data URL images
+  if (text.startsWith('data:image/')) {
     return `<img
       src="${text}"
       alt="Generated image"
-      style="max-width:280px;width:100%;border-radius:12px;margin-top:8px;display:block;"
-      onload="chatWindow.scrollTop = chatWindow.scrollHeight"
+      style="max-width:100%;border-radius:12px;margin-top:8px;display:block;"
+      onload="document.getElementById('chatWindow').scrollTop = document.getElementById('chatWindow').scrollHeight"
     />`;
   }
 
-  // ── Render plain image URLs (http/https ending in image extension or from known image hosts)
+  // Render raw base64 strings (JPEG / PNG)
+  if (text.startsWith('/9j/') || text.startsWith('iVBOR')) {
+    const mime = text.startsWith('/9j/') ? 'image/jpeg' : 'image/png';
+    return `<img
+      src="data:${mime};base64,${text}"
+      alt="Generated image"
+      style="max-width:100%;border-radius:12px;margin-top:8px;display:block;"
+      onload="document.getElementById('chatWindow').scrollTop = document.getElementById('chatWindow').scrollHeight"
+    />`;
+  }
+
+  // Render plain image URLs
   const imageUrlPattern = /^https?:\/\/.+\.(png|jpg|jpeg|gif|webp)(\?.*)?$/i;
-  const pollinationsPattern = /^https?:\/\/image\.pollinations\.ai\/.+/i;
-  if (typeof text === 'string' && (imageUrlPattern.test(text.trim()) || pollinationsPattern.test(text.trim()))) {
+  if (imageUrlPattern.test(text.trim())) {
     return `<img
       src="${escapeHtml(text.trim())}"
       alt="Generated image"
-      style="max-width:280px;width:100%;border-radius:12px;margin-top:8px;display:block;"
-      onload="chatWindow.scrollTop = chatWindow.scrollHeight"
+      style="max-width:100%;border-radius:12px;margin-top:8px;display:block;"
+      onload="document.getElementById('chatWindow').scrollTop = document.getElementById('chatWindow').scrollHeight"
     />`;
   }
 
-  // ── Default: render markdown-lite + escape HTML
+  // Default: markdown-lite
   return escapeHtml(text)
     .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
     .replace(/\*(.*?)\*/g, '<em>$1</em>')
+    .replace(/`(.*?)`/g, '<code style="background:rgba(255,255,255,0.08);padding:1px 5px;border-radius:4px;font-size:12px">$1</code>')
     .replace(/\n/g, '<br>');
 }
 
