@@ -203,16 +203,29 @@ async function handleSendMessage() {
 
     const data = await response.json();
 
+    // 🔍 DEBUG — open DevTools Console to see the raw response shape
+    console.log('[Nami] raw response:', JSON.stringify(data, null, 2));
+
+    const arr = Array.isArray(data) ? data[0] : data;
+
     const allValues = [
-      data?.output,
-      data?.text,
-      data?.message,
-      data?.response,
-      data?.chatOutput,
-      Array.isArray(data) ? data[0]?.output : null
+      arr?.output,
+      arr?.text,
+      arr?.message,
+      arr?.response,
+      arr?.chatOutput,
+      arr?.url,
+      arr?.secure_url,
+      arr?.imageUrl,
+      arr?.image_url,
+      arr?.result,
+      arr?.data?.url,
+      arr?.data?.secure_url,
+      // deep search: any string value that looks like a Cloudinary URL
+      ...Object.values(arr || {}).filter(v => typeof v === 'string' && v.includes('cloudinary.com')),
     ].filter(Boolean);
 
-    const reply = allValues[0] || 'I received your message but could not parse the response.';
+    const reply = allValues[0] || `⚠️ Could not parse response. Check console for raw data.\n\`\`\`\n${JSON.stringify(data, null, 2).slice(0, 400)}\n\`\`\``;
 
     removeTyping();
     chat.messages.push({ role: 'bot', text: reply });
