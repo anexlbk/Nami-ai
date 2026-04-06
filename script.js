@@ -291,43 +291,68 @@ function handleChipClick(chip) {
   handleSendMessage();
 }
 
+// ── EXTRACT IMAGE URLS FROM TEXT ──
+function extractImageUrls(text) {
+  // Matches Cloudinary URLs (with or without file extension) and standard image URLs
+  const pattern = /https?:\/\/(?:res\.cloudinary\.com\/[^\s"'<>]+|[^\s"'<>]+\.(?:png|jpg|jpeg|gif|webp)(?:\?[^\s"'<>]*)?)/gi;
+  return [...text.matchAll(pattern)].map(m => ({ url: m[0], index: m.index }));
+}
+
+function renderImageTag(url) {
+  return `<img
+    src="${escapeHtml(url)}"
+    alt="Generated image"
+    style="max-width:100%;border-radius:12px;margin-top:8px;display:block;"
+    onload="document.getElementById('chatWindow').scrollTop = document.getElementById('chatWindow').scrollHeight"
+    onerror="this.style.display='none'"
+  />`;
+}
+
 // ── FORMAT TEXT ──
 function formatText(text) {
   if (typeof text !== 'string') return '';
 
-  // Render base64 data URL images
+  // 1. Render base64 data URL images
   if (text.startsWith('data:image/')) {
-    return `<img
-      src="${text}"
-      alt="Generated image"
-      style="max-width:100%;border-radius:12px;margin-top:8px;display:block;"
-      onload="document.getElementById('chatWindow').scrollTop = document.getElementById('chatWindow').scrollHeight"
-    />`;
+    return renderImageTag(text);
   }
 
-  // Render raw base64 strings (JPEG / PNG)
+  // 2. Render raw base64 strings (JPEG / PNG)
   if (text.startsWith('/9j/') || text.startsWith('iVBOR')) {
     const mime = text.startsWith('/9j/') ? 'image/jpeg' : 'image/png';
-    return `<img
-      src="data:${mime};base64,${text}"
-      alt="Generated image"
-      style="max-width:100%;border-radius:12px;margin-top:8px;display:block;"
-      onload="document.getElementById('chatWindow').scrollTop = document.getElementById('chatWindow').scrollHeight"
-    />`;
+    return renderImageTag(`data:${mime};base64,${text}`);
   }
 
-  // Render image URLs (including Cloudinary)
-  const imageUrlPattern = /^https?:\/\/.+\.(png|jpg|jpeg|gif|webp)(\?.*)?$/i;
-  if (imageUrlPattern.test(text.trim())) {
-    return `<img
-      src="${escapeHtml(text.trim())}"
-      alt="Generated image"
-      style="max-width:100%;border-radius:12px;margin-top:8px;display:block;"
-      onload="document.getElementById('chatWindow').scrollTop = document.getElementById('chatWindow').scrollHeight"
-    />`;
+  // 3. Check for image URLs (Cloudinary or standard) anywhere in the text
+  const imageMatches = extractImageUrls(text);
+
+  if (imageMatches.length > 0) {
+    // Replace each image URL in the text with an <img> tag
+    let result = '';
+    let lastIndex = 0;
+
+    for (const { url, index } of imageMatches) {
+      // Add any text before the URL (markdown-rendered)
+      const before = text.slice(lastIndex, index);
+      if (before) result += renderMarkdown(before);
+      // Add the image tag
+      result += renderImageTag(url);
+      lastIndex = index + url.length;
+    }
+
+    // Add any remaining text after the last URL
+    const after = text.slice(lastIndex);
+    if (after) result += renderMarkdown(after);
+
+    return result;
   }
 
-  // Default: markdown-lite
+  // 4. Default: markdown-lite rendering
+  return renderMarkdown(text);
+}
+
+// ── MARKDOWN-LITE RENDERER ──
+function renderMarkdown(text) {
   return escapeHtml(text)
     .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
     .replace(/\*(.*?)\*/g, '<em>$1</em>')
