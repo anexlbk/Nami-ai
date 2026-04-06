@@ -315,7 +315,7 @@ function renderImageTag(url) {
   return `<img
     src="${escapeHtml(url)}"
     alt="Generated image"
-    style="max-width:100%;border-radius:12px;margin-top:8px;display:block;"
+    style="width:100%;max-width:360px;height:auto;border-radius:14px;margin-top:10px;display:block;box-shadow:0 4px 24px rgba(0,0,0,0.4);"
     onload="document.getElementById('chatWindow').scrollTop = document.getElementById('chatWindow').scrollHeight"
     onerror="this.style.display='none'"
   />`;
